@@ -3,8 +3,7 @@
 Bu proje, **Afyon Kocatepe Üniversitesi Güzel Sanatlar Fakültesi** öğrencileri için hazırlanmış bir dijital çizim asistanıdır. Fiziksel kağıt boyutlarına göre görselleri oranlar, özel kenar boşlukları (paspartu) bırakır ve üzerine tam ölçülü gridler (ızgara) ekler.
 
 ## 🚀 Canlı Siteye Git
-[Buraya Streamlit Linkini Yapıştır](https://linkin-buraya.app)
-
+https://gsf-cizim-asistani.streamlit.app/
 ## ✨ Özellikler
 * **Hassas Boyutlandırma:** 35x50, 50x70, 70x100 gibi her türlü kağıt boyutunu destekler.
 * **Özel Boşluklar:** Üst, alt, sağ ve sol kenar boşluklarını cm cinsinden ayarlayabilme.

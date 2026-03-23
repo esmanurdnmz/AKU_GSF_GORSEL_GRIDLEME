@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 
 
-def web_icin_grid_olustur(img, kagit_eni_cm, kagit_boyu_cm, kare_boyutu_cm, m_ust, m_alt, m_sol, m_sag):
+def web_icin_grid_olustur(img, kagit_eni_cm, kagit_boyu_cm, kare_boyutu_cm, m_ust, m_alt, m_sol, m_sag, sigdirma):
     # Çözünürlük ve RAM Koruması
     uzun_kenar_cm = max(kagit_eni_cm, kagit_boyu_cm)
     maksimum_piksel = 8000
@@ -26,23 +26,41 @@ def web_icin_grid_olustur(img, kagit_eni_cm, kagit_boyu_cm, kare_boyutu_cm, m_us
     guvenli_w_px = int((kagit_eni_cm - (m_sol + m_sag)) * PCM)
     guvenli_h_px = int((kagit_boyu_cm - (m_ust + m_alt)) * PCM)
 
-    # Hata Kontrolü: Eğer kenar boşlukları toplamı kağıttan büyükse işlemi durdur
+    # Hata Kontrolü
     if guvenli_w_px <= 0 or guvenli_h_px <= 0:
         st.error("Hata: Kenar boşluklarının toplamı kağıt boyutundan büyük olamaz!")
         return None
 
-    scale = min(guvenli_w_px / orig_w, guvenli_h_px / orig_h)
-    new_w = max(1, int(orig_w * scale))
-    new_h = max(1, int(orig_h * scale))
+    if sigdirma == "Kırparak Sığdır (Kenarlıklar tam uyar)":
+        hedef_oran = guvenli_w_px / guvenli_h_px
+        resim_oran = orig_w / orig_h
 
-    resized_img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_LANCZOS4)
+        if resim_oran > hedef_oran:
+            yeni_w = int(orig_h * hedef_oran)
+            kirpma_x = (orig_w - yeni_w) // 2
+            img_cropped = img[:, kirpma_x:kirpma_x + yeni_w]
+        else:
+            yeni_h = int(orig_w / hedef_oran)
+            kirpma_y = (orig_h - yeni_h) // 2
+            img_cropped = img[kirpma_y:kirpma_y + yeni_h, :]
 
-    # Marginlere göre konumlandır ve GÜVENLİ ALANIN ORTASINA YERLEŞTİR
-    bosluk_x = (guvenli_w_px - new_w) // 2
-    bosluk_y = (guvenli_h_px - new_h) // 2
+        resized_img = cv2.resize(img_cropped, (guvenli_w_px, guvenli_h_px), interpolation=cv2.INTER_LANCZOS4)
+        offset_x = int(m_sol * PCM)
+        offset_y = int(m_ust * PCM)
+        new_w, new_h = guvenli_w_px, guvenli_h_px
 
-    offset_x = int(m_sol * PCM) + bosluk_x
-    offset_y = int(m_ust * PCM) + bosluk_y
+    else:  # Daraltarak Sığdır
+        scale = min(guvenli_w_px / orig_w, guvenli_h_px / orig_h)
+        new_w = max(1, int(orig_w * scale))
+        new_h = max(1, int(orig_h * scale))
+
+        resized_img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_LANCZOS4)
+
+        bosluk_x = (guvenli_w_px - new_w) // 2
+        bosluk_y = (guvenli_h_px - new_h) // 2
+
+        offset_x = int(m_sol * PCM) + bosluk_x
+        offset_y = int(m_ust * PCM) + bosluk_y
 
     tuval[offset_y:offset_y + new_h, offset_x:offset_x + new_w] = resized_img
 
@@ -53,14 +71,19 @@ def web_icin_grid_olustur(img, kagit_eni_cm, kagit_boyu_cm, kare_boyutu_cm, m_us
     ana_kalinlik = max(1, int(DPI / 100))
     golge_kalinlik = ana_kalinlik * 2 + 1
 
-    # Grid çizimi
-    for y in range(0, kagit_h_px, kare_px):
-        cv2.line(tuval, (0, y), (kagit_w_px, y), golge_renk, golge_kalinlik)
-        cv2.line(tuval, (0, y), (kagit_w_px, y), ana_renk, ana_kalinlik)
+    # Grid çizimi - SADECE GÖRSELİN ÜZERİNE ÇİZİLİR
+    for y in range(offset_y, offset_y + new_h + 1, kare_px):
+        if y <= offset_y + new_h:
+            cv2.line(tuval, (offset_x, y), (offset_x + new_w, y), golge_renk, golge_kalinlik)
+            cv2.line(tuval, (offset_x, y), (offset_x + new_w, y), ana_renk, ana_kalinlik)
 
-    for x in range(0, kagit_w_px, kare_px):
-        cv2.line(tuval, (x, 0), (x, kagit_h_px), golge_renk, golge_kalinlik)
-        cv2.line(tuval, (x, 0), (x, kagit_h_px), ana_renk, ana_kalinlik)
+    for x in range(offset_x, offset_x + new_w + 1, kare_px):
+        if x <= offset_x + new_w:
+            cv2.line(tuval, (x, offset_y), (x, offset_y + new_h), golge_renk, golge_kalinlik)
+            cv2.line(tuval, (x, offset_y), (x, offset_y + new_h), ana_renk, ana_kalinlik)
+
+    # Resmin etrafına ince bir çerçeve çekelim ki sınırları belli olsun
+    cv2.rectangle(tuval, (offset_x, offset_y), (offset_x + new_w, offset_y + new_h), (0, 0, 0), ana_kalinlik)
 
     return tuval
 
@@ -85,16 +108,23 @@ yonelim = st.radio("Kağıt Yönü", ("Dikey", "Yatay"), horizontal=True)
 
 kare_boyutu = st.number_input("Grid Kare Boyutu (cm)", min_value=0.5, value=3.0, step=0.5)
 
+# Yeni Özellik: Sığdırma Ayarı
+st.subheader("🖼️ Görsel Sığdırma Ayarı")
+sigdirma = st.radio(
+    "Görsel güvenli alana nasıl oturtulsun?",
+    ("Kırparak Sığdır (Kenarlıklar tam uyar)", "Daraltarak Sığdır (Görselin tamamı görünür, fazladan boşluk kalabilir)")
+)
+
 # Margin inputları
-st.subheader("Kenar Boşlukları (cm)")
+st.subheader("📏 Kenar Boşlukları (cm)")
 
 col3, col4 = st.columns(2)
 with col3:
-    m_ust = st.number_input("Üst", min_value=0.0, value=2.0, step=0.5)
-    m_alt = st.number_input("Alt", min_value=0.0, value=2.0, step=0.5)
+    m_ust = st.number_input("Üst", min_value=0.0, value=5.0, step=0.5)
+    m_alt = st.number_input("Alt", min_value=0.0, value=5.0, step=0.5)
 with col4:
-    m_sol = st.number_input("Sol", min_value=0.0, value=2.0, step=0.5)
-    m_sag = st.number_input("Sağ", min_value=0.0, value=2.0, step=0.5)
+    m_sol = st.number_input("Sol", min_value=0.0, value=10.0, step=0.5)
+    m_sag = st.number_input("Sağ", min_value=0.0, value=10.0, step=0.5)
 
 # İşlem
 if yuklenen_dosya is not None:
@@ -115,10 +145,9 @@ if yuklenen_dosya is not None:
 
             sonuc = web_icin_grid_olustur(
                 img, eni, boyu, kare_boyutu,
-                m_ust, m_alt, m_sol, m_sag
+                m_ust, m_alt, m_sol, m_sag, sigdirma
             )
 
-            # Sadece geçerli bir sonuç döndüyse resmi göster (Hata kontrolü)
             if sonuc is not None:
                 sonuc_rgb = cv2.cvtColor(sonuc, cv2.COLOR_BGR2RGB)
 
@@ -129,6 +158,6 @@ if yuklenen_dosya is not None:
                 st.download_button(
                     label="📥 İndir",
                     data=buffer.tobytes(),
-                    file_name="gridli.jpg",
+                    file_name="gridli_sanat_referansi.jpg",
                     mime="image/jpeg"
                 )

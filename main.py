@@ -86,9 +86,9 @@ yuklenen_dosya = st.file_uploader("Referans Görselinizi Yükleyin (JPG/PNG)", t
 # Kağıt/Tuval boyutları
 col1, col2 = st.columns(2)
 with col1:
-    kenar_a = st.number_input("1. Kağıt/Tuval Kenarı (cm)", min_value=1.0, value=70.0, step=1.0)
+    kenar_a = st.number_input(" Kağıt/Tuval En (cm)", min_value=1.0, value=70.0, step=1.0)
 with col2:
-    kenar_b = st.number_input("2. Kağıt/Tuval Kenarı (cm)", min_value=1.0, value=100.0, step=1.0)
+    kenar_b = st.number_input(" Kağıt/Tuval Boy (cm)", min_value=1.0, value=100.0, step=1.0)
 
 yonelim = st.radio("Kağıt/Tuval Yönü", ("Dikey", "Yatay"), horizontal=True)
 
@@ -161,5 +161,5 @@ with col_img:
 with col_text:
     st.markdown("**Geliştirici:** Esmanur Dönmez")
     st.markdown(
-        "[🔗 LinkedIn Profilim](https://linkedin.com/in/esmanurdonmez) | [💻 GitHub Profilim](https://github.com/esmanurdnmz)")
+        "[🔗 LinkedIn Profilim](https://linkedin.com/in/esmanur-dönmez-61316629b) | [💻 GitHub Profilim](https://github.com/esmanurdnmz)")
     st.caption("Bu araç AKÜ GSF öğrencileri için hazırlanmıştır.")

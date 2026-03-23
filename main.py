@@ -3,7 +3,8 @@ import cv2
 import numpy as np
 
 
-def web_icin_grid_olustur(img, kagit_eni_cm, kagit_boyu_cm, kare_boyutu_cm, m_ust, m_alt, m_sol, m_sag):
+def web_icin_grid_olustur(img, kagit_eni_cm, kagit_boyu_cm, kare_boyutu_cm, m_ust, m_alt, m_sol, m_sag,
+                          cizgi_rengi_bgr):
     # Çözünürlük ve RAM Koruması
     uzun_kenar_cm = max(kagit_eni_cm, kagit_boyu_cm)
     maksimum_piksel = 8000
@@ -34,7 +35,7 @@ def web_icin_grid_olustur(img, kagit_eni_cm, kagit_boyu_cm, kare_boyutu_cm, m_us
 
     # Hata Kontrolü
     if guvenli_w_px <= 0 or guvenli_h_px <= 0:
-        st.error("Hata: Kenar boşluklarının toplamı kağıt boyutundan büyük olamaz!")
+        st.error("Hata: Kenar boşluklarının toplamı kağıt/tuval boyutundan büyük olamaz!")
         return None
 
     # Resmi bozmadan küçült/büyült
@@ -44,7 +45,7 @@ def web_icin_grid_olustur(img, kagit_eni_cm, kagit_boyu_cm, kare_boyutu_cm, m_us
 
     resized_img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_LANCZOS4)
 
-    # İŞTE ÇÖZÜM BURADA: Artan boşluğu hesapla ve sağa/sola eşit dağıt
+    # Artan boşluğu hesapla ve sağa/sola eşit dağıt (Kusursuz Ortalama)
     bosluk_x = (guvenli_w_px - new_w) // 2
     bosluk_y = (guvenli_h_px - new_h) // 2
 
@@ -56,8 +57,8 @@ def web_icin_grid_olustur(img, kagit_eni_cm, kagit_boyu_cm, kare_boyutu_cm, m_us
 
     kare_px = max(1, int(kare_boyutu_cm * PCM))
 
-    ana_renk = (0, 0, 255)
-    golge_renk = (0, 0, 0)
+    ana_renk = cizgi_rengi_bgr  # Kullanıcının seçtiği renk
+    golge_renk = (0, 0, 0) if ana_renk != (0, 0, 0) else (255, 255, 255)  # Siyah seçilirse gölge beyaz olsun
     ana_kalinlik = max(1, int(DPI / 100))
     golge_kalinlik = ana_kalinlik * 2 + 1
 
@@ -77,32 +78,41 @@ def web_icin_grid_olustur(img, kagit_eni_cm, kagit_boyu_cm, kare_boyutu_cm, m_us
 st.set_page_config(page_title="Sanatçı Gridleyici", layout="centered")
 
 st.title("🎨 Profesyonel Grid Aracı")
-st.write("Görselinizi yükleyin, kağıt boyutunuzu girin ve gridli halini indirin.")
+st.write("Görselinizi yükleyin, kağıt/tuval boyutunuzu girin ve gridli halini indirin.")
 
 # Görsel yükleme
 yuklenen_dosya = st.file_uploader("Referans Görselinizi Yükleyin (JPG/PNG)", type=['jpg', 'jpeg', 'png'])
 
-# Kağıt boyutları
+# Kağıt/Tuval boyutları
 col1, col2 = st.columns(2)
 with col1:
-    kenar_a = st.number_input("1. Kenar (cm)", min_value=1.0, value=70.0, step=1.0)
+    kenar_a = st.number_input("1. Kağıt/Tuval Kenarı (cm)", min_value=1.0, value=70.0, step=1.0)
 with col2:
-    kenar_b = st.number_input("2. Kenar (cm)", min_value=1.0, value=100.0, step=1.0)
+    kenar_b = st.number_input("2. Kağıt/Tuval Kenarı (cm)", min_value=1.0, value=100.0, step=1.0)
 
-yonelim = st.radio("Kağıt Yönü", ("Dikey", "Yatay"), horizontal=True)
+yonelim = st.radio("Kağıt/Tuval Yönü", ("Dikey", "Yatay"), horizontal=True)
 
-kare_boyutu = st.number_input("Grid Kare Boyutu (cm)", min_value=0.5, value=3.0, step=0.5)
+# Grid Ayarları (Boyut ve Renk)
+col_grid1, col_grid2 = st.columns(2)
+with col_grid1:
+    kare_boyutu = st.number_input("Grid Kare Boyutu (cm)", min_value=0.5, value=3.0, step=0.5)
+with col_grid2:
+    # Kullanıcıdan HEX formatında renk alıp OpenCV'nin istediği BGR formatına çeviriyoruz
+    secilen_renk_hex = st.color_picker(" Grid Çizgi Rengi", "#FF0000")
+    hex_kodu = secilen_renk_hex.lstrip('#')
+    rgb = tuple(int(hex_kodu[i:i + 2], 16) for i in (0, 2, 4))
+    cizgi_rengi_bgr = (rgb[2], rgb[1], rgb[0])  # OpenCV için BGR sıralaması
 
 # Margin inputları
-st.subheader("📏 Kenar Boşlukları (cm)")
+st.subheader(" Kenar Boşlukları (cm)")
 
 col3, col4 = st.columns(2)
 with col3:
-    m_ust = st.number_input("Üst", min_value=0.0, value=5.0, step=0.5)
-    m_alt = st.number_input("Alt", min_value=0.0, value=5.0, step=0.5)
+    m_ust = st.number_input("Üst Boşluk", min_value=0.0, value=5.0, step=0.5)
+    m_alt = st.number_input("Alt Boşluk", min_value=0.0, value=5.0, step=0.5)
 with col4:
-    m_sol = st.number_input("Sol", min_value=0.0, value=10.0, step=0.5)
-    m_sag = st.number_input("Sağ", min_value=0.0, value=10.0, step=0.5)
+    m_sol = st.number_input("Sol Boşluk", min_value=0.0, value=10.0, step=0.5)
+    m_sag = st.number_input("Sağ Boşluk", min_value=0.0, value=10.0, step=0.5)
 
 # İşlem
 if yuklenen_dosya is not None:
@@ -123,7 +133,7 @@ if yuklenen_dosya is not None:
 
             sonuc = web_icin_grid_olustur(
                 img, eni, boyu, kare_boyutu,
-                m_ust, m_alt, m_sol, m_sag
+                m_ust, m_alt, m_sol, m_sag, cizgi_rengi_bgr
             )
 
             if sonuc is not None:
@@ -134,8 +144,22 @@ if yuklenen_dosya is not None:
 
                 is_success, buffer = cv2.imencode(".jpg", sonuc)
                 st.download_button(
-                    label="📥 İndir",
+                    label="📥 Görseli İndir",
                     data=buffer.tobytes(),
                     file_name="gridli_sanat_referansi.jpg",
                     mime="image/jpeg"
                 )
+
+# --- GELİŞTİRİCİ KARTI (FOOTER) ---
+st.markdown("---")
+col_img, col_text = st.columns([1, 6])
+
+with col_img:
+    # GitHub profil resmini otomatik çeker
+    st.image("https://github.com/esmanurdnmz.png", width=70)
+
+with col_text:
+    st.markdown("**Geliştirici:** Esmanur Dönmez")
+    st.markdown(
+        "[🔗 LinkedIn Profilim](https://linkedin.com/in/esmanurdonmez) | [💻 GitHub Profilim](https://github.com/esmanurdnmz)")
+    st.caption("Bu araç AKÜ GSF öğrencileri için hazırlanmıştır.")

@@ -26,15 +26,23 @@ def web_icin_grid_olustur(img, kagit_eni_cm, kagit_boyu_cm, kare_boyutu_cm, m_us
     guvenli_w_px = int((kagit_eni_cm - (m_sol + m_sag)) * PCM)
     guvenli_h_px = int((kagit_boyu_cm - (m_ust + m_alt)) * PCM)
 
+    # Hata Kontrolü: Eğer kenar boşlukları toplamı kağıttan büyükse işlemi durdur
+    if guvenli_w_px <= 0 or guvenli_h_px <= 0:
+        st.error("Hata: Kenar boşluklarının toplamı kağıt boyutundan büyük olamaz!")
+        return None
+
     scale = min(guvenli_w_px / orig_w, guvenli_h_px / orig_h)
     new_w = max(1, int(orig_w * scale))
     new_h = max(1, int(orig_h * scale))
 
     resized_img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_LANCZOS4)
 
-    # Marginlere göre konumlandır
-    offset_x = int(m_sol * PCM)
-    offset_y = int(m_ust * PCM)
+    # Marginlere göre konumlandır ve GÜVENLİ ALANIN ORTASINA YERLEŞTİR
+    bosluk_x = (guvenli_w_px - new_w) // 2
+    bosluk_y = (guvenli_h_px - new_h) // 2
+
+    offset_x = int(m_sol * PCM) + bosluk_x
+    offset_y = int(m_ust * PCM) + bosluk_y
 
     tuval[offset_y:offset_y + new_h, offset_x:offset_x + new_w] = resized_img
 
@@ -110,15 +118,17 @@ if yuklenen_dosya is not None:
                 m_ust, m_alt, m_sol, m_sag
             )
 
-            sonuc_rgb = cv2.cvtColor(sonuc, cv2.COLOR_BGR2RGB)
+            # Sadece geçerli bir sonuç döndüyse resmi göster (Hata kontrolü)
+            if sonuc is not None:
+                sonuc_rgb = cv2.cvtColor(sonuc, cv2.COLOR_BGR2RGB)
 
-            st.success("Hazır!")
-            st.image(sonuc_rgb, caption="Gridli Görsel", use_container_width=True)
+                st.success("Hazır!")
+                st.image(sonuc_rgb, caption="Gridli Görsel", use_container_width=True)
 
-            is_success, buffer = cv2.imencode(".jpg", sonuc)
-            st.download_button(
-                label="📥 İndir",
-                data=buffer.tobytes(),
-                file_name="gridli.jpg",
-                mime="image/jpeg"
-            )
+                is_success, buffer = cv2.imencode(".jpg", sonuc)
+                st.download_button(
+                    label="📥 İndir",
+                    data=buffer.tobytes(),
+                    file_name="gridli.jpg",
+                    mime="image/jpeg"
+                )
